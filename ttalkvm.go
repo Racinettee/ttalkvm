@@ -26,6 +26,7 @@ const (
 	PushInt32
 	PushFloat32
 	// command 1 byte, 4 bytes for loc (u32le) within data, 4 bytes for len (u32le)
+	// Pushes a string from the data section to the top of the stack
 	PushString
 	// make a copy of the top element 1 byte cmd
 	PushTop
@@ -46,8 +47,10 @@ const (
 	End
 )
 
-const dataHeaderOffset uint32 = 5
-const dataDataOffset uint32 = dataHeaderOffset + 4
+const (
+	dataHeaderOffset uint32 = 5
+	dataDataOffset uint32 = dataHeaderOffset + 4
+)
 
 type TtalkVm struct {
 	ops []byte
@@ -83,6 +86,20 @@ func (tvm *TtalkVm) Pop() (result interface{}) {
 
 func (tvm *TtalkVm) Top() interface{} {
 	return tvm.stack[tvm.stackSize - 1]
+}
+
+func (tvm *TtalkVm) ShiftDown(atIndex int) {
+	// At index will be overridden by elements "above it" in the stack
+	if atIndex >= tvm.stackSize {
+		return
+	}
+	// Starting at atIndex, and climbing the stack till reaching the top
+	for ; atIndex < tvm.stackSize; atIndex += 1 {
+		if atIndex + 1 == tvm.stackSize {
+			continue
+		}
+		tvm.stack[atIndex] = tvm.stack[atIndex+1]
+	}
 }
 
 func (tvm *TtalkVm) Interpret() {
