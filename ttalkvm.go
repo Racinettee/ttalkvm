@@ -66,8 +66,8 @@ func (tvm *TtalkVm) Interpret() {
 	for {
 		switch ops[ptr] {
 		case PushInt32:
-			ptrI32 := unsafe.Pointer(&ops[ptr+1])
-			tvm.Push(*(*int32)(ptrI32))
+			ptrI32 := binary.LittleEndian.Uint32(ops[ptr+1:])
+			tvm.Push(*(*int32)(unsafe.Pointer(&ptrI32)))
 			ptr += 5 // 1 + 4 bytes for this op
 
 		case AddI32:
