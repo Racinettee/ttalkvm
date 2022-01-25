@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"unsafe"
 )
 
@@ -23,7 +24,7 @@ const (
 	dataDataOffset   uint32 = dataHeaderOffset + 4
 )
 
-type TtalkCallable = func(vm *TtalkVm, reciever interface{})
+type TtalkCallable = func(vm *TtalkVm, reciever interface{}) int
 
 type TtalkVm struct {
 	ops           []byte
@@ -37,10 +38,16 @@ func NewVMFromByteCode(code []byte) TtalkVm {
 		ops:           code,
 		stack:         make([]interface{}, 100),
 		stackSize:     0,
-		nativeMethods: make(map[string]func(*TtalkVm, interface{})),
+		nativeMethods: make(map[string]TtalkCallable),
 	}
 }
 
+// Host functionality
+func (tvm *TtalkVm) AddFunction(name string, fn TtalkCallable) {
+	tvm.nativeMethods[name] = fn
+}
+
+// Stack operations
 func (tvm *TtalkVm) Push(obj interface{}) {
 	if tvm.stackSize+1 >= len(tvm.stack) {
 		newStack := make([]interface{}, len(tvm.stack)+100)
@@ -79,7 +86,7 @@ func (tvm *TtalkVm) ShiftDown(atIndex int) {
 func (tvm *TtalkVm) Interpret() {
 	// First ensure the header:
 	if !bytes.Equal(tvm.ops[0:5], []byte{0x74, 0x61, 0x6c, 0x6b, 0}) {
-		fmt.Printf("Header is wrong %x", tvm.ops[0:5])
+		log.Printf("Header is wrong %x", tvm.ops[0:5])
 		panic("")
 	}
 	// Get the data (4 bytes describe length 6 bytes passing the header):
@@ -105,6 +112,10 @@ func (tvm *TtalkVm) Interpret() {
 
 		case PushTop:
 			tvm.Push(tvm.Top())
+			ptr += 1
+
+		case PushNil:
+			tvm.Push(nil)
 			ptr += 1
 
 		case AddI32:
@@ -133,6 +144,8 @@ func (tvm *TtalkVm) Interpret() {
 			methodStr := tvm.Pop().(string)
 			reciever := tvm.Pop()
 
+			tvm.nativeMethods[methodStr](tvm, reciever)
+			ptr += 1
 		case End:
 			return
 		}

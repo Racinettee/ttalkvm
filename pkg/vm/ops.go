@@ -11,6 +11,8 @@ const (
 	PushString
 	// make a copy of the top element 1 byte cmd
 	PushTop
+	// Push nil value to the stack
+	PushNil
 	// command 1 byte, pops 2 i32le from stack, pushes result
 	AddI32
 	AddF32
