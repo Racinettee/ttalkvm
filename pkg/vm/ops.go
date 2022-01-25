@@ -27,6 +27,9 @@ const (
 	// Prints to stdout whatever value is "top"
 	PrintTop
 
+	// 1 byte command, puts a new table at the top of stack
+	NewTable
+
 	// Pops 2: 1st: string from stack, 2nd: receiver
 	// Calls a function from Go itself
 	NativeCall

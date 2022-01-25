@@ -25,6 +25,7 @@ const (
 )
 
 type TtalkCallable = func(vm *TtalkVm, reciever interface{}) int
+type TtalkTable = map[string]interface{}
 
 type TtalkVm struct {
 	ops           []byte
@@ -40,6 +41,11 @@ func NewVMFromByteCode(code []byte) TtalkVm {
 		stackSize:     0,
 		nativeMethods: make(map[string]TtalkCallable),
 	}
+}
+
+// Objects
+func (tvm *TtalkVm) NewTable() {
+	tvm.Push(make(TtalkTable))
 }
 
 // Host functionality
@@ -100,33 +106,32 @@ func (tvm *TtalkVm) Interpret() {
 		case PushInt32:
 			ptrI32 := binary.LittleEndian.Uint32(ops[ptr+1:])
 			tvm.Push(*(*int32)(unsafe.Pointer(&ptrI32)))
-			ptr += 5 // 1 + 4 bytes for this op
+			ptr += 5 // 1 + 4 (command, bytes for i32) - stak + 1
 
 		case PushString:
 			ptrLoc := dataDataOffset + binary.LittleEndian.Uint32(ops[ptr+1:])
 			ptrSiz := binary.LittleEndian.Uint32(ops[ptr+5:])
-			//log.Printf("Str ref: (%v, %v)\n", ptrLoc, ptrSiz)
 			str := tvm.ops[ptrLoc : ptrLoc+ptrSiz]
 			tvm.Push(string(str))
-			ptr += 9
+			ptr += 9 // 1 + 4 + 4 (command, location, length) - stak + 1
 
 		case PushTop:
 			tvm.Push(tvm.Top())
-			ptr += 1
+			ptr += 1 // 1 (command) - stak + 1
 
 		case PushNil:
 			tvm.Push(nil)
-			ptr += 1
+			ptr += 1 // 1 (command) - stak + 1
 
 		case AddI32:
 			right := tvm.Pop().(int32)
 			left := tvm.Pop().(int32)
 			tvm.Push(left + right)
-			ptr += 1
+			ptr += 1 // 1 (command) - stak + 1
 
 		case PopTop:
 			tvm.Pop()
-			ptr += 1
+			ptr += 1 // 1 (command) - stak - 1
 
 		case PopN:
 			numPop := int(binary.LittleEndian.Uint32(tvm.ops[ptr+1:]))
@@ -134,18 +139,22 @@ func (tvm *TtalkVm) Interpret() {
 				tvm.stack[tvm.stackSize-(1+i)] = nil
 			}
 			tvm.stackSize -= numPop
-			ptr += 5
+			ptr += 5 // 1 + 4 (command, n elements as u32) - stak - N
 
 		case PrintTop:
 			fmt.Println(tvm.Top())
-			ptr += 1
+			ptr += 1 // 1 (command) - stak +/- 0
+
+		case NewTable:
+			tvm.NewTable()
+			ptr += 1 // 1 (command) - stak + 1
 
 		case NativeCall:
 			methodStr := tvm.Pop().(string)
 			reciever := tvm.Pop()
 
 			tvm.nativeMethods[methodStr](tvm, reciever)
-			ptr += 1
+			ptr += 1 // 1 (command) - stak - 2 + N
 		case End:
 			return
 		}
