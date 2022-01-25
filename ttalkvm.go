@@ -33,9 +33,9 @@ func main() {
 	vm := talk.NewVMFromByteCode(progCode.Bytes())
 
 	vm.AddFunction(string(msg), func(vm *talk.TtalkVm, reciever interface{}) int {
-		fmt.Println("Yolo!")
+		fmt.Println("Message from Go")
 		return 0
 	})
-	// Prints 303 then Hello World!
+	// Prints 303 then Hello World! then Message from Go
 	vm.Interpret()
 }
