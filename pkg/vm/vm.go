@@ -48,6 +48,18 @@ func (tvm *TtalkVm) NewTable() {
 	tvm.Push(make(TtalkTable))
 }
 
+// Pops 2, sets the value for the given key, on the table on the top of the stack
+// Expected order on the stack:
+// Value (top)
+// Key
+// Table
+func (tvm *TtalkVm) SetKV() {
+	value := tvm.Pop()
+	key := tvm.Pop().(string)
+	table := tvm.Top().(TtalkTable)
+	table[key] = value
+}
+
 // Host functionality
 func (tvm *TtalkVm) AddFunction(name string, fn TtalkCallable) {
 	tvm.nativeMethods[name] = fn
@@ -149,12 +161,17 @@ func (tvm *TtalkVm) Interpret() {
 			tvm.NewTable()
 			ptr += 1 // 1 (command) - stak + 1
 
+		case SetTableKV:
+			tvm.SetKV()
+			ptr += 1
+
 		case NativeCall:
 			methodStr := tvm.Pop().(string)
 			reciever := tvm.Pop()
 
 			tvm.nativeMethods[methodStr](tvm, reciever)
 			ptr += 1 // 1 (command) - stak - 2 + N
+			
 		case End:
 			return
 		}

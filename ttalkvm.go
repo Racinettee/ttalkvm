@@ -1,32 +1,33 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 
 	//"log"
 
 	talk "github.com/Racinettee/ttalkvm/pkg/vm"
+	bld "github.com/Racinettee/ttalkvm/pkg/codebuild"
 )
 
 func main() {
 	// Program begins with magic header "talk\0"
-	progCode := bytes.NewBuffer([]byte{0x74, 0x61, 0x6c, 0x6b, 0})
+	progCode := bld.NewModuleBuffer()
 	msg := []byte("Hello World!")
 	// The next header is data, begining with how much total data there is
-	binary.Write(progCode, binary.LittleEndian, uint32(len(msg)))
+	bld.WriteU32(progCode, uint32(len(msg)))
 	// The data sits linearly together
 	progCode.Write(msg)
 	// Next is the code - pushes two 32 bit signed ints to stack, then adds
 	progCode.WriteByte(talk.PushInt32)
-	binary.Write(progCode, binary.LittleEndian, int32(101))
+	bld.WriteI32(progCode, 101)
 	progCode.WriteByte(talk.PushInt32)
-	binary.Write(progCode, binary.LittleEndian, int32(202))
-	progCode.Write([]byte{talk.AddI32, talk.PrintTop, talk.PopTop, talk.PushNil, talk.PushString})
+	bld.WriteI32(progCode, 202)
+	progCode.Write([]byte{
+		talk.AddI32, talk.PrintTop, talk.PopTop, talk.PushNil, talk.PushString,
+	})
 	// Now we're adding a string reference to be printed
-	binary.Write(progCode, binary.LittleEndian, uint32(0))
-	binary.Write(progCode, binary.LittleEndian, uint32(len(msg)))
+	bld.WriteU32(progCode, 0)
+	bld.WriteU32(progCode, uint32(len(msg)))
 	// Print the string
 	progCode.Write([]byte{talk.PrintTop, talk.NativeCall, talk.End})
 

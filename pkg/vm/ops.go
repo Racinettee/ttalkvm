@@ -29,6 +29,8 @@ const (
 
 	// 1 byte command, puts a new table at the top of stack
 	NewTable
+	// 1 byte command, takes 2 from the stack
+	SetTableKV
 
 	// Pops 2: 1st: string from stack, 2nd: receiver
 	// Calls a function from Go itself
