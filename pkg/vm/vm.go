@@ -30,7 +30,6 @@ type TtalkTable = map[string]interface{}
 type TtalkVm struct {
 	ops           []byte
 	stack         []interface{}
-	stackSize     int
 	nativeMethods map[string]TtalkCallable
 }
 
@@ -38,7 +37,6 @@ func NewVMFromByteCode(code []byte) TtalkVm {
 	return TtalkVm{
 		ops:           code,
 		stack:         make([]interface{}, 100),
-		stackSize:     0,
 		nativeMethods: make(map[string]TtalkCallable),
 	}
 }
@@ -67,34 +65,27 @@ func (tvm *TtalkVm) AddFunction(name string, fn TtalkCallable) {
 
 // Stack operations
 func (tvm *TtalkVm) Push(obj interface{}) {
-	if tvm.stackSize+1 >= len(tvm.stack) {
-		newStack := make([]interface{}, len(tvm.stack)+100)
-		copy(newStack, tvm.stack)
-		tvm.stack = newStack
-	}
-	tvm.stack[tvm.stackSize] = obj
-	tvm.stackSize += 1
+	tvm.stack = append(tvm.stack, obj)
 }
 
 func (tvm *TtalkVm) Pop() (result interface{}) {
-	result = tvm.stack[tvm.stackSize-1]
-	tvm.stack[tvm.stackSize-1] = nil
-	tvm.stackSize -= 1
+	result = tvm.stack[len(tvm.stack)-1]
+	tvm.stack = tvm.stack[:len(tvm.stack)-1]
 	return
 }
 
 func (tvm *TtalkVm) Top() interface{} {
-	return tvm.stack[tvm.stackSize-1]
+	return tvm.stack[len(tvm.stack)-1]
 }
 
 func (tvm *TtalkVm) ShiftDown(atIndex int) {
 	// At index will be overridden by elements "above it" in the stack
-	if atIndex >= tvm.stackSize {
+	if atIndex >= len(tvm.stack) {
 		return
 	}
 	// Starting at atIndex, and climbing the stack till reaching the top
-	for ; atIndex < tvm.stackSize; atIndex += 1 {
-		if atIndex+1 == tvm.stackSize {
+	for ; atIndex < len(tvm.stack); atIndex += 1 {
+		if atIndex+1 == len(tvm.stack) {
 			continue
 		}
 		tvm.stack[atIndex] = tvm.stack[atIndex+1]
@@ -147,10 +138,7 @@ func (tvm *TtalkVm) Interpret() {
 
 		case PopN:
 			numPop := int(binary.LittleEndian.Uint32(tvm.ops[ptr+1:]))
-			for i := 0; i < numPop; i += 1 {
-				tvm.stack[tvm.stackSize-(1+i)] = nil
-			}
-			tvm.stackSize -= numPop
+			tvm.stack = tvm.stack[:len(tvm.stack)-numPop]
 			ptr += 5 // 1 + 4 (command, n elements as u32) - stak - N
 
 		case PrintTop:
@@ -171,7 +159,7 @@ func (tvm *TtalkVm) Interpret() {
 
 			tvm.nativeMethods[methodStr](tvm, reciever)
 			ptr += 1 // 1 (command) - stak - 2 + N
-			
+
 		case End:
 			return
 		}
