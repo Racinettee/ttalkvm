@@ -36,6 +36,20 @@ const (
 	// Calls a function from Go itself
 	NativeCall
 
+	// 1 byte: command, 4 bytes u32: location to go to
+	// Call a fixed location in the module
+	CallD
+
+	// 1 byte: command
+	// Exits the current function
+	ReturnNothing
+	// 1 byte: command, 1 byte number of results (ubyte)
+	Return
+
 	// This is always last
 	End
+)
+
+const (
+	CallResExit = -1
 )

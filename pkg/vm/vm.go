@@ -24,6 +24,8 @@ const (
 	dataDataOffset   uint32 = dataHeaderOffset + 4
 )
 
+var headerPrefix = [...]byte{0x74, 0x61, 0x6c, 0x6b, 0}
+
 type TtalkCallable = func(vm *TtalkVm, reciever interface{}) int
 type TtalkTable = map[string]interface{}
 
@@ -94,7 +96,7 @@ func (tvm *TtalkVm) ShiftDown(atIndex int) {
 
 func (tvm *TtalkVm) Interpret() {
 	// First ensure the header:
-	if !bytes.Equal(tvm.ops[0:5], []byte{0x74, 0x61, 0x6c, 0x6b, 0}) {
+	if !bytes.Equal(tvm.ops[0:5], headerPrefix[:]) {
 		log.Printf("Header is wrong %x", tvm.ops[0:5])
 		panic("")
 	}
@@ -102,9 +104,17 @@ func (tvm *TtalkVm) Interpret() {
 	dataLen := binary.LittleEndian.Uint32(tvm.ops[dataHeaderOffset:])
 	//stackPointers := util.NewIntStack(100)
 	// Start past the data header (offset of 9 total bytes so far, plus the length)
-	ops := tvm.ops[9+dataLen:]
+	codeOffset := int(dataDataOffset + dataLen)
+	ops := tvm.ops[codeOffset:]
+	tvm.InterpretFunc(ops, int(codeOffset))
+}
+
+// Interpret a function
+// negative return values mean special action for the interpreter
+// positive return value is number of results on the stack
+func (tvm *TtalkVm) InterpretFunc(ops []byte, offset int) int {
 	ptr := 0
-	for {
+	for ptr < len(ops) {
 		switch ops[ptr] {
 		case PushInt32:
 			ptrI32 := binary.LittleEndian.Uint32(ops[ptr+1:])
@@ -160,8 +170,26 @@ func (tvm *TtalkVm) Interpret() {
 			tvm.nativeMethods[methodStr](tvm, reciever)
 			ptr += 1 // 1 (command) - stak - 2 + N
 
+		case CallD:
+			callDest := binary.LittleEndian.Uint32(ops[ptr+1:])
+			callRes := tvm.InterpretFunc(ops[callDest:])
+			switch callRes {
+			case CallResExit:
+				return CallResExit
+			default:
+				return callRes
+			}
+
+		case ReturnNothing:
+			return 0
+
+		case Return:
+			returnNo := int(ops[ptr+1])
+			return returnNo
+
 		case End:
-			return
+			return CallResExit
 		}
 	}
+	return 0
 }

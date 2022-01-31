@@ -5,8 +5,8 @@ import (
 
 	//"log"
 
-	talk "github.com/Racinettee/ttalkvm/pkg/vm"
 	bld "github.com/Racinettee/ttalkvm/pkg/codebuild"
+	talk "github.com/Racinettee/ttalkvm/pkg/vm"
 )
 
 func main() {
@@ -29,7 +29,17 @@ func main() {
 	bld.WriteU32(progCode, 0)
 	bld.WriteU32(progCode, uint32(len(msg)))
 	// Print the string
-	progCode.Write([]byte{talk.PrintTop, talk.NativeCall, talk.End})
+	progCode.Write([]byte{talk.PrintTop, talk.NativeCall, talk.CallD})
+	addFuncPos := progCode.Len() + 5 // 4 bytes (for loc + 1 for end to reach the last func)
+	bld.WriteU32(progCode, uint32(addFuncPos))
+	progCode.WriteByte(talk.End)
+	progCode.WriteByte(talk.PushInt32)
+	bld.WriteI32(progCode, 1)
+	progCode.WriteByte(talk.PushInt32)
+	bld.WriteI32(progCode, 2)
+	progCode.WriteByte(talk.PushInt32)
+	bld.WriteI32(progCode, 3)
+	progCode.Write([]byte{talk.AddI32, talk.AddI32, talk.Return, byte(1)})
 
 	vm := talk.NewVMFromByteCode(progCode.Bytes())
 
